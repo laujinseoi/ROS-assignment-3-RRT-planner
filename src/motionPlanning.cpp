@@ -71,6 +71,8 @@ motionPlanning::motionPlanning(ros::NodeHandle& n)
 			q1.push_back(Points3D(q1_x, q1_y, q1_z));
 			
 			// build RRT and find shortest path on it
+      //q0:机器人当前点
+      //q1:机器人目标点
 			goal = simpleRRT1(q0, q1);
 			
 			// draw the shortest path in rviz simulator
@@ -412,6 +414,7 @@ void motionPlanning::drawPath()
 }
 
 // distance between two configurations in SE(2) using embedding function
+//两个构型的最短距离
 double motionPlanning::distEmbedding(std::vector<Points3D> q1, std::vector<Points3D> q2)
 {
 	double ctl_pnt1[2] = {0.3, 0.2};
@@ -536,12 +539,14 @@ double motionPlanning::distEmbeddings(std::vector<Points3D> pnt, std::vector<Poi
 	double min_val_so_far = 1000;
 	int min_idx_so_far;
 		
-	for (size_t i = 0; i != poly.size()-1; ++i){
+  for (size_t i = 0; i != poly.size()-1; ++i)
+  {
 		std::vector<Points3D> cur_pnt;
 		double tmp_str;
 		cur_pnt.push_back(Points3D(poly[i]._x, poly[i]._y, poly[i]._z));
 		tmp_str = distEmbedding(pnt, cur_pnt);
 		min_val.push_back(tmp_str);
+    //求最短距离的构型
 		if (min_val[i] < min_val_so_far){
 			min_val_so_far = min_val[i];
 			min_idx_so_far = i;
@@ -594,6 +599,7 @@ bool motionPlanning::collisionCheck(double yb_pos_x, double yb_pos_y, double yb_
 	fcl::CollisionRequest request_1, request_2, request_3, request_4, request_5, request_6, request_7, request_8, request_9, request_10, request_11;
 
 
+  //定义机器人
 	fcl::CollisionObject co_yb(D_yb, D_tf_yb);
 	fcl::CollisionObject co_obs_1(D_obs_1, D_tf_obs_1);
 	fcl::CollisionObject co_obs_2(D_obs_2, D_tf_obs_2);
@@ -605,7 +611,7 @@ bool motionPlanning::collisionCheck(double yb_pos_x, double yb_pos_y, double yb_
 	fcl::CollisionObject co_wall_2(D_wall_2, D_tf_wall_2);
 	fcl::CollisionObject co_wall_3(D_wall_3, D_tf_wall_3);
 	fcl::CollisionObject co_wall_4(D_wall_4, D_tf_wall_4);
-
+  //和障碍物进行比较
 	fcl::collide(&co_yb, &co_obs_1, request_1, result_1);
 	fcl::collide(&co_yb, &co_obs_2, request_2, result_2);
 	fcl::collide(&co_yb, &co_obs_3, request_3, result_3);
@@ -617,7 +623,7 @@ bool motionPlanning::collisionCheck(double yb_pos_x, double yb_pos_y, double yb_
 	fcl::collide(&co_yb, &co_wall_3, request_9, result_9);
 	fcl::collide(&co_yb, &co_wall_4, request_10, result_10);
 	
-
+  //不碰撞，返回false
 	if (!result_1.isCollision() && !result_2.isCollision() && !result_3.isCollision() && !result_4.isCollision() && 
 	!result_7.isCollision() && !result_8.isCollision() && !result_9.isCollision() && !result_10.isCollision() && !result_11.isCollision())
 	{
@@ -640,10 +646,13 @@ bool motionPlanning::contcollisionCheck(std::vector<Points3D> pnt_q1,std::vector
 	q2[1] = pnt_q2[0]._y;
 	q2[2] = pnt_q2[0]._z;
 	bool comp_val = true;
+
+  //不断求解两个点之间是否与障碍物发生碰撞
 	for (size_t i=0; i < n_sample+1; i++)
 	{
 		comp_val*=!collisionCheck(q1[0]+i*(q2[0]-q1[0])/n_sample,q1[1]+i*(q2[1]-q1[1])/n_sample,q1[2]+i*(q2[2]-q1[2])/n_sample);
 	}	
+  //没有碰撞，则返回false
 	return !comp_val;
 }
 
@@ -803,6 +812,8 @@ std::vector<Points3D> motionPlanning::simpleRRT1(std::vector<Points3D> q0, std::
 		}
     //将随机的采样点添加进路径集合中
 		q_rand.push_back(Points3D(set_x,set_y,set_o));
+
+    //求出q_rand到Vt中最近的那个点作为生长点，并保存到Vt_tmp中
 		min_idx = distEmbeddings(q_rand,Vt);
 		std::vector<Points3D> Vt_tmp;
 		Vt_tmp.push_back(Points3D(Vt[min_idx]._x,Vt[min_idx]._y,Vt[min_idx]._z));
@@ -814,6 +825,7 @@ std::vector<Points3D> motionPlanning::simpleRRT1(std::vector<Points3D> q0, std::
 					
 		
 		// modify q_new based upon the step_size
+    //在生长点的基础生以step_size为步长生长新的点，如果两点距离小于步长，则直接将随机点作为新生成的点
 		if (distPointPoint(Vt_tmp2d,q_rand2d) > step_size)
 		{
 			q_new_x = Vt_tmp[0]._x + step_size*(q_rand[0]._x - Vt_tmp[0]._x)/distPointPoint(Vt_tmp,q_rand);
@@ -821,12 +833,10 @@ std::vector<Points3D> motionPlanning::simpleRRT1(std::vector<Points3D> q0, std::
 		}
 		else
 		{
-					
-	
 			q_new_x = q_rand[0]._x;
 			q_new_y = q_rand[0]._y;
 		}
-		
+    //类似上面，这里是角度
 		if (std::abs(atan2(sin(q_rand[0]._z- Vt_tmp[0]._z), cos(q_rand[0]._z- Vt_tmp[0]._z))) > step_size_th)
 		{
 			double orig_dist = atan2(sin(q_rand[0]._z- Vt_tmp[0]._z), cos(q_rand[0]._z- Vt_tmp[0]._z));
@@ -843,12 +853,13 @@ std::vector<Points3D> motionPlanning::simpleRRT1(std::vector<Points3D> q0, std::
 		{
 			q_new_z = q_rand[0]._z;
 		}		
-		
+    //装载新的点
 		q_new.push_back(Points3D(q_new_x,q_new_y,q_new_z));
 
 		
 		// check continuous collision between q_new and the closest point on RRT
-		if (!contcollisionCheck(Vt_tmp,q_new, n_sample))
+    //段检测
+    if (!contcollisionCheck(Vt_tmp,q_new, n_sample))//没有碰撞的情况下
 		{	
 			////////////////////////////////////////////////////////
 			if (!(graph == NULL))
