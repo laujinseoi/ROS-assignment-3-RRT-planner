@@ -767,6 +767,7 @@ std::vector<int> motionPlanning::dijkstra(int **graph, int src, int snk, int v_s
 }
 
 // build RRT and find the shortest path on RRT for two configurations in SE(2)
+//底座RRT算法
 std::vector<Points3D> motionPlanning::simpleRRT1(std::vector<Points3D> q0, std::vector<Points3D> q1)
 {
 	std::vector<Points3D> Vt, q_rand, q_new; 	
@@ -790,14 +791,17 @@ std::vector<Points3D> motionPlanning::simpleRRT1(std::vector<Points3D> q0, std::
 		// find q_rand in O_free
 		while(!exit){
 			// generate a random sample for each configurations (SE(2))
+      //随机生成采样点
 			set_x = ((double) rand() / (RAND_MAX))*7 - 1;
 			set_y = ((double) rand() / (RAND_MAX))*7 - 1;
 			set_o = ((double) rand() / (RAND_MAX))*2*PI-PI;
+      //首先检查采样点是否是在碰撞区域
 			if (!collisionCheck(set_x,set_y,set_o))
 			{
 				exit = true;
 			}
 		}
+    //将随机的采样点添加进路径集合中
 		q_rand.push_back(Points3D(set_x,set_y,set_o));
 		min_idx = distEmbeddings(q_rand,Vt);
 		std::vector<Points3D> Vt_tmp;
@@ -1491,6 +1495,7 @@ bool motionPlanning::contcollisionCheckYoubot(std::vector<Points5D> pnt_q1,std::
 }
 
 // generate way points and generate PID control effort
+//生成路径点
 geometry_msgs::Twist motionPlanning::wayPoint(std::vector<Points3D> wp, unsigned int cnt, double kp, double ki, double kd, 
 double kp_t, double ki_t, double kd_t)
 {
